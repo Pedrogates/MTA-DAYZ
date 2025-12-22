@@ -1,0 +1,7 @@
+<meta>
+    <info author="Miranda_ZX" name="Inventário + Loot" type="script" />
+
+    <script src="server.lua" type="server" />
+    <script src="loot.lua" type="server" />
+    <script src="client.lua" type="client" />
+</meta>

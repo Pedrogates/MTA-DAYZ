@@ -1,12 +1,9 @@
-server.lua
+server.lua 
 
 ----------------------------------------------------
 -- INVENTÁRIO + LOOT (SERVER)
 -- VERSÃO ESTÁVEL / BACKUP SEGURO
 ----------------------------------------------------
-
--- CARREGAR SISTEMA DE LOOT DO MAPA
-dofile("loot.lua")
 
 local inventarios = {}
 local loots = {}
@@ -211,7 +208,7 @@ addEventHandler("inventario:dropar", root, function(item)
 end)
 
 ----------------------------------------------------
--- ABRIR / PEGAR / FECHAR LOOT
+-- LOOT
 ----------------------------------------------------
 addEvent("loot:abrir", true)
 addEventHandler("loot:abrir", root, function(id)
@@ -257,11 +254,11 @@ end)
 -- SPAWN DE LOOT DO MAPA
 ----------------------------------------------------
 addEventHandler("onResourceStart", resourceRoot, function()
-
     LootSystem.spawnar(loots, { value = lootID })
-
 end)
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+
 
 
 client.lua
@@ -279,7 +276,7 @@ local lootPertoID = nil
 local lootEmProgresso = false
 
 ----------------------------------------------------
--- ANIMAÇÃO SEGURA (NUNCA TRAVA)
+-- ANIMAÇÃO SEGURA
 ----------------------------------------------------
 local function playAnim(block, anim, tempo)
     setPedAnimation(localPlayer, block, anim, tempo, false, false, false, false)
@@ -382,31 +379,25 @@ addEventHandler("onClientGUIClick", root, function()
 
     local item = getItemSelecionado()
 
-    -- EQUIPAR ARMA (NOVA ANIMAÇÃO)
     if source == GUIEditor.button[1] and item and item.categoria == "ARMAS" then
         playAnim("COLT45","colt45_reload",1200)
         setTimer(function()
             triggerServerEvent("inventario:equipar", localPlayer, item)
         end,1200,1)
 
-    -- DESEQUIPAR ARMA (SÓ SE TIVER ARMA)
     elseif source == GUIEditor.button[5] then
-
         if not getElementData(localPlayer, "arma:equipada") then return end
-
         playAnim("PED","phone_in",1000)
         setTimer(function()
             triggerServerEvent("inventario:desequipar", localPlayer)
         end,1000,1)
 
-    -- USAR ITEM
     elseif source == GUIEditor.button[2] and item and item.categoria == "COMIDAS" then
         playAnim("FOOD","EAT_Burger",1500)
         setTimer(function()
             triggerServerEvent("inventario:usar", localPlayer, item)
         end,1500,1)
 
-    -- DROPAR ITEM
     elseif source == GUIEditor.button[3] and item then
         playAnim("BOMBER","BOM_Plant",1200)
         setTimer(function()
@@ -485,7 +476,7 @@ addEventHandler("loot:mostrar", root, function(id, itens)
 end)
 
 ----------------------------------------------------
--- PEGAR ITEM DO LOOT (RÁPIDO)
+-- PEGAR ITEM DO LOOT
 ----------------------------------------------------
 addEventHandler("onClientGUIClick", root, function()
 
@@ -506,153 +497,4 @@ end)
 ----------------------------------------------------
 addEvent("loot:fechar", true)
 addEventHandler("loot:fechar", root, fecharLoot)
--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-loot.lua
-
-----------------------------------------------------
--- LOOT SPAWN SYSTEM
-----------------------------------------------------
-
-LootSystem = {}
-
-----------------------------------------------------
--- PERFIS DE LOOT
-----------------------------------------------------
-LootSystem.perfis = {
-
-    LANCHONETE = {
-        maxItens = 3,
-        chanceVazio = 20,
-        categorias = {
-            COMIDAS = 60,
-            BEBIDAS = 60,
-            ARMAS   = 5,
-            OUTROS  = 35
-        }
-    },
-
-    DELEGACIA = {
-        maxItens = 4,
-        chanceVazio = 10,
-        categorias = {
-            ARMAS   = 50,
-            COMIDAS = 30,
-            BEBIDAS = 20,
-            OUTROS  = 20
-        }
-    }
-}
-
-----------------------------------------------------
--- ITENS DISPONÍVEIS
-----------------------------------------------------
-LootSystem.itens = {
-
-    COMIDAS = {
-        { nome = "PAO", min = 1, max = 2 }
-    },
-
-    BEBIDAS = {
-        { nome = "AGUA", min = 1, max = 2 }
-    },
-
-    ARMAS = {
-        { nome = "FACA", min = 1, max = 1 }
-    },
-
-    OUTROS = {
-        { nome = "ISQUEIRO", min = 1, max = 1 }
-    }
-	
-	
-}
-
-----------------------------------------------------
--- CORDENADAS DOS LOOTS
-----------------------------------------------------
-LootSystem.spawns = {
-    { x = -2414.3,   y = -600.954, z = 132.562, perfil = "LANCHONETE" },
-    { x = -2421.626, y = -606.013, z = 132.562, perfil = "LANCHONETE" }
-}
-
-----------------------------------------------------
--- FUNÇÕES
-----------------------------------------------------
-local function sortearCategoria(categorias)
-    local total = 0
-    for _,v in pairs(categorias) do total = total + v end
-
-    local r = math.random(1,total)
-    local soma = 0
-
-    for cat,chance in pairs(categorias) do
-        soma = soma + chance
-        if r <= soma then return cat end
-    end
-end
-
-function LootSystem.gerarItens(perfilNome)
-
-    local perfil = LootSystem.perfis[perfilNome]
-    if not perfil then return {} end
-
-    if math.random(100) <= perfil.chanceVazio then
-        return {}
-    end
-
-    local itens = {}
-    local qtd = math.random(1, perfil.maxItens)
-
-    for i=1,qtd do
-        local categoria = sortearCategoria(perfil.categorias)
-        local lista = LootSystem.itens[categoria]
-
-        if lista then
-            local base = lista[math.random(#lista)]
-            table.insert(itens,{
-                nome = base.nome,
-                categoria = categoria,
-                qtd = math.random(base.min, base.max)
-            })
-        end
-    end
-
-    return itens
-end
-
-----------------------------------------------------
--- SPAWNAR LOOTS NO MAPA
-----------------------------------------------------
-function LootSystem.spawnar(loots, lootID)
-
-    for _,info in ipairs(LootSystem.spawns) do
-
-        local obj = createObject(2358, info.x, info.y, info.z - 0.9)
-        setElementFrozen(obj,true)
-
-        lootID.value = lootID.value + 1
-        local id = lootID.value
-
-        loots[id] = {
-            object = obj,
-            aberto = false,
-            itens = LootSystem.gerarItens(info.perfil)
-        }
-
-        setElementData(obj,"loot:id",id)
-    end
-end
-
-
---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-meta.xml
-
-<meta>
-    <info author="Miranda_ZX" name="Inventário + Loot" type="script" />
-
-    <script src="server.lua" type="server" />
-    <script src="loot.lua" type="server" />
-    <script src="client.lua" type="client" />
-</meta>
